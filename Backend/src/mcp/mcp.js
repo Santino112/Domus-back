@@ -8,22 +8,16 @@ const server = new McpServer({
     version: "1.0.0",
 });
 
-toolsManifest.forEach(tool => {
-    server.registerTool(
-        tool.name,
-        {
-            title: tool.title,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-            outputSchema: tool.outputSchema
-        },
-        tool.run
-    );
-});
-
 export function startMCP() {
     const app = express();
     app.use(express.json());
+
+    toolsManifest.forEach(tool => {
+        server.registerTool(tool.name, tool);
+    });
+
+    // Para ver las tools registradas:
+    console.log("Tools registradas:", Object.keys(server.tool)); // devuelve un array con los nombres
 
     app.post("/mcp", async (req, res) => {
         const transport = new StreamableHTTPServerTransport({
