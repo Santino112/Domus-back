@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@modelcontextprotocol/sdk/node_modules/zod";
 
 export const sayHelloTool = {
     name: "sayHello",
