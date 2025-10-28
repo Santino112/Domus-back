@@ -1,4 +1,4 @@
-import { z } from "@modelcontextprotocol/sdk/node_modules/zod";
+import { z } from "zod";
 import axios from "axios";
 
 export const askAiTool = {
