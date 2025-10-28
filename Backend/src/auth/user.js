@@ -259,5 +259,3 @@ router.get('/perfil', verificarToken, async (req, res) => {
 });
 
 export default router;
-
-//funcional
