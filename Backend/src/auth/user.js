@@ -93,6 +93,7 @@ router.post('/registro', async (req, res) => {
             email,
             password_hash,
             rol: 'user', // Por defecto, rol de usuario normal
+            /* creado_en: new Date().toISOString() */
         });
 
         if (!result.success) {
@@ -174,6 +175,68 @@ router.post('/login', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/refresh
+ * Refrescar token JWT
+ */
+router.post('/refresh', async (req, res) => {
+    try {
+        // Verificar si hay un token válido en el header
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Token no proporcionado' });
+        }
+
+        // Verificar y decodificar el token
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            
+            // Buscar al usuario para asegurarnos de que existe
+            const result = await obtenerDatos('usuarios', { id: decoded.id });
+            if (!result.success || result.data.length === 0) {
+                return res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+
+            const usuario = result.data[0];
+
+            // Generar nuevo token
+            const newToken = jwt.sign(
+                { 
+                    id: usuario.id, 
+                    email: usuario.email, 
+                    rol: usuario.rol 
+                },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            res.json({ 
+                accessToken: newToken,
+                usuario: {
+                    id: usuario.id,
+                    username: usuario.username,
+                    email: usuario.email,
+                    rol: usuario.rol
+                }
+            });
+        } catch (jwtError) {
+            return res.status(403).json({ error: 'Token inválido o expirado' });
+        }
+    } catch (err) {
+        console.error('❌ Error en refresh:', err);
+        res.status(500).json({ error: 'Error al refrescar token' });
+    }
+});
+
+/**
+ * POST /api/auth/logout
+ * Logout de usuario (simplemente devuelve OK)
+ */
+router.post('/logout', (req, res) => {
+    res.json({ mensaje: '✅ Logout exitoso' });
+});
+
+/**
  * GET /api/auth/perfil
  * Obtener perfil del usuario autenticado
  */
@@ -185,6 +248,7 @@ router.get('/perfil', verificarToken, async (req, res) => {
         }
 
         const { password_hash, ...usuarioSeguro } = result.data[0];
+        
         res.json(usuarioSeguro);
     } catch (err) {
         console.error('❌ Error al obtener perfil:', err);

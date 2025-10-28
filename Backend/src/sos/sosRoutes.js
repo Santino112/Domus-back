@@ -97,7 +97,7 @@ router.post('/enviar', verificarToken, async (req, res) => {
         }
 
         // Mensaje por defecto si no se proporciona
-        const mensajeFinal = mensaje || `🚨 ALERTA SOS - Usuario ${req.user.email} activó emergencia. Revisar dispositivo inmediatamente.`;
+        const mensajeFinal = mensaje || ` ALERTA SOS - Usuario ${req.user.email} activó emergencia. Revisar dispositivo inmediatamente.`;
 
         // Guardar en BD
         const result = await insertarDatos('mensajes_sos', {
