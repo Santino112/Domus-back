@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 
 export const getOpenAIClient = () => {
-    if (!process.env.OPEN_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY no está definida');
     }
-    return new OpenAI({ apiKey: process.env.OPEN_API_KEY });
+    return new OpenAI({ apiKey: process.env.OPENAI_API_KEY});
 };
 
 export const responseAI = async (req, res) => {

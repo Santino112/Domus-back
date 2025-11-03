@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
+console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '✅ cargada' : '❌ no cargada');
+console.log('WEATHER_API_KEY:', process.env.WEATHER_API_KEY ? '✅ cargada' : '❌ no cargada');
 
 import express from 'express';
 import cors from 'cors';
@@ -16,13 +18,9 @@ import robotRoutes from './src/robot/controller.js';
 import alertasRoutes from './src/alertas/alertasRoutes.js';
 import iaRoutes from './src/ia/iaRoutes.js';
 import sosRoutes from './src/sos/sosRoutes.js';
-
 import requestToAI from './src/aiModel/aiModelRoute.js';
-
-
-
+import climaRoute from './src/apiClima/climaRoute.js';
 import { loggerMiddleware } from './src/utils/logger.js';
-import { startMCP } from './src/mcp/mcp.js';
 import { start } from 'repl';
 // import { loggerMiddleware } from './src/utils/logger.js';
 
@@ -35,6 +33,8 @@ const PORT = process.env.PORT || 3000;
 // ==================
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use('/clima', climaRoute);
+app.use('/respuestaAI', iaRoutes);
 
 // Permitir lista de orígenes desde env (coma-separado) o localhost por defecto
 /* const allowedOrigins = process.env.CORS_ORIGIN
@@ -200,7 +200,6 @@ const server = app.listen(PORT, async () => {
     }
 
     console.log('✅ ✅ ✅  SISTEMA COMPLETAMENTE LISTO PARA USAR  ✅ ✅ ✅\n');
-    startMCP();
 });
 
 // ==================
