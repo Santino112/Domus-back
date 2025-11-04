@@ -54,4 +54,4 @@ export const guardarClima = async () => {
 
 guardarClima();
 
-cron.schedule('*/30 * * * *', guardarClima);
+cron.schedule('0 * * * *', guardarClima);
