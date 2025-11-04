@@ -1,9 +1,272 @@
 import express from 'express';
 import { enviarComandoRobot } from '../mqtt/robotClient.js';
 import { verificarToken } from '../auth/user.js';
-import { obtenerDatos, insertarDatos } from '../database.js';
+import { obtenerDatos, insertarDatos, actualizarDatos } from '../database.js';
 
 const router = express.Router();
+
+/**
+ * POST /api/robot/encender
+ * Encender el robot
+ */
+router.post('/encender', verificarToken, async (req, res) => {
+    try {
+        const { dispositivo_id = 1 } = req.body;
+
+        // Verificar que el dispositivo existe
+        const dispResult = await obtenerDatos('dispositivos', { id: parseInt(dispositivo_id) });
+        if (!dispResult.success || dispResult.data.length === 0) {
+            return res.status(404).json({ error: 'Dispositivo no encontrado' });
+        }
+
+        // Actualizar estado en BD
+        const result = await actualizarDatos('dispositivos', 
+            { 
+                estado: 'activo',
+                updated_at: new Date().toISOString()
+            },
+            { id: parseInt(dispositivo_id) }
+        );
+
+        if (!result.success) {
+            return res.status(500).json({ error: result.error });
+        }
+
+        // Enviar comando MQTT al robot
+        const comandoEnviado = enviarComandoRobot({
+            accion: 'encender',
+            datos: { estado: 'activo' }
+        });
+
+        // Crear log de acción
+        try {
+            await insertarDatos('logs', {
+                user_id: req.user.id,
+                accion: 'robot_encendido',
+                descripcion: `Robot ${dispositivo_id} encendido`,
+                ip_address: req.ip || null,
+                user_agent: req.headers['user-agent'] || null
+            });
+        } catch (logErr) {
+            console.warn('⚠️ No se pudo guardar log:', logErr.message);
+        }
+
+        // Crear alerta informativa
+        try {
+            await insertarDatos('alertas', {
+                user_id: req.user.id,
+                dispositivo_id: parseInt(dispositivo_id),
+                tipo_alerta: 'robot_encendido',
+                descripcion: 'Robot activado correctamente',
+                severidad: 'baja',
+                leida: false
+            });
+        } catch (alertErr) {
+            console.warn('⚠️ No se pudo crear alerta:', alertErr.message);
+        }
+
+        res.json({
+            exito: true,
+            mensaje: '✅ Robot encendido correctamente',
+            estado: 'activo',
+            dispositivo_id: parseInt(dispositivo_id),
+            comando_mqtt: comandoEnviado ? 'enviado' : 'no_disponible',
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('❌ Error al encender robot:', err);
+        res.status(500).json({ error: 'Error al encender robot', detalle: err.message });
+    }
+});
+
+/**
+ * POST /api/robot/apagar
+ * Apagar el robot
+ */
+router.post('/apagar', verificarToken, async (req, res) => {
+    try {
+        const { dispositivo_id = 1 } = req.body;
+
+        // Verificar que el dispositivo existe
+        const dispResult = await obtenerDatos('dispositivos', { id: parseInt(dispositivo_id) });
+        if (!dispResult.success || dispResult.data.length === 0) {
+            return res.status(404).json({ error: 'Dispositivo no encontrado' });
+        }
+
+        // Primero detener cualquier movimiento
+        enviarComandoRobot({ accion: 'parar' });
+
+        // Actualizar estado en BD
+        const result = await actualizarDatos('dispositivos', 
+            { 
+                estado: 'inactivo',
+                updated_at: new Date().toISOString()
+            },
+            { id: parseInt(dispositivo_id) }
+        );
+
+        if (!result.success) {
+            return res.status(500).json({ error: result.error });
+        }
+
+        // Enviar comando MQTT al robot
+        const comandoEnviado = enviarComandoRobot({
+            accion: 'apagar',
+            datos: { estado: 'inactivo' }
+        });
+
+        // Crear log de acción
+        try {
+            await insertarDatos('logs', {
+                user_id: req.user.id,
+                accion: 'robot_apagado',
+                descripcion: `Robot ${dispositivo_id} apagado`,
+                ip_address: req.ip || null,
+                user_agent: req.headers['user-agent'] || null
+            });
+        } catch (logErr) {
+            console.warn('⚠️ No se pudo guardar log:', logErr.message);
+        }
+
+        // Crear alerta informativa
+        try {
+            await insertarDatos('alertas', {
+                user_id: req.user.id,
+                dispositivo_id: parseInt(dispositivo_id),
+                tipo_alerta: 'robot_apagado',
+                descripcion: 'Robot desactivado correctamente',
+                severidad: 'baja',
+                leida: false
+            });
+        } catch (alertErr) {
+            console.warn('⚠️ No se pudo crear alerta:', alertErr.message);
+        }
+
+        res.json({
+            exito: true,
+            mensaje: '✅ Robot apagado correctamente',
+            estado: 'inactivo',
+            dispositivo_id: parseInt(dispositivo_id),
+            comando_mqtt: comandoEnviado ? 'enviado' : 'no_disponible',
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('❌ Error al apagar robot:', err);
+        res.status(500).json({ error: 'Error al apagar robot', detalle: err.message });
+    }
+});
+
+/**
+ * PUT /api/robot/estado/:accion
+ * Endpoint unificado para cambiar estado (alternativa RESTful)
+ * Uso: PUT /api/robot/estado/encender o PUT /api/robot/estado/apagar
+ */
+router.put('/estado/:accion', verificarToken, async (req, res) => {
+    try {
+        const { accion } = req.params;
+        const { dispositivo_id = 1 } = req.body;
+
+        // Validar acción
+        if (!['encender', 'apagar'].includes(accion)) {
+            return res.status(400).json({ 
+                error: 'Acción inválida. Use: encender o apagar' 
+            });
+        }
+
+        // Verificar que el dispositivo existe
+        const dispResult = await obtenerDatos('dispositivos', { id: parseInt(dispositivo_id) });
+        if (!dispResult.success || dispResult.data.length === 0) {
+            return res.status(404).json({ error: 'Dispositivo no encontrado' });
+        }
+
+        const nuevoEstado = accion === 'encender' ? 'activo' : 'inactivo';
+
+        // Si está apagando, primero detener movimiento
+        if (accion === 'apagar') {
+            enviarComandoRobot({ accion: 'parar' });
+        }
+
+        // Actualizar estado en BD
+        const result = await actualizarDatos('dispositivos', 
+            { 
+                estado: nuevoEstado,
+                updated_at: new Date().toISOString()
+            },
+            { id: parseInt(dispositivo_id) }
+        );
+
+        if (!result.success) {
+            return res.status(500).json({ error: result.error });
+        }
+
+        // Enviar comando MQTT
+        const comandoEnviado = enviarComandoRobot({
+            accion: accion,
+            datos: { estado: nuevoEstado }
+        });
+
+        // Crear log
+        try {
+            await insertarDatos('logs', {
+                user_id: req.user.id,
+                accion: `robot_${accion}`,
+                descripcion: `Robot ${dispositivo_id} ${accion === 'encender' ? 'encendido' : 'apagado'}`,
+                ip_address: req.ip || null,
+                user_agent: req.headers['user-agent'] || null
+            });
+        } catch (logErr) {
+            console.warn('⚠️ No se pudo guardar log:', logErr.message);
+        }
+
+        res.json({
+            exito: true,
+            mensaje: `✅ Robot ${accion === 'encender' ? 'encendido' : 'apagado'} correctamente`,
+            estado: nuevoEstado,
+            dispositivo_id: parseInt(dispositivo_id),
+            comando_mqtt: comandoEnviado ? 'enviado' : 'no_disponible',
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error(`❌ Error al ${req.params.accion} robot:`, err);
+        res.status(500).json({ error: `Error al ${req.params.accion} robot`, detalle: err.message });
+    }
+});
+
+/**
+ * GET /api/robot/estado-actual
+ * Obtener estado actual del robot (encendido/apagado)
+ */
+router.get('/estado-actual', verificarToken, async (req, res) => {
+    try {
+        const { dispositivo_id = 1 } = req.query;
+
+        const result = await obtenerDatos('dispositivos', { 
+            id: parseInt(dispositivo_id) 
+        });
+
+        if (!result.success || result.data.length === 0) {
+            return res.status(404).json({ 
+                error: 'Dispositivo no encontrado' 
+            });
+        }
+
+        const dispositivo = result.data[0];
+
+        res.json({
+            dispositivo_id: dispositivo.id,
+            nombre: dispositivo.nombre,
+            tipo: dispositivo.tipo,
+            estado: dispositivo.estado, // 'activo' o 'inactivo'
+            encendido: dispositivo.estado === 'activo',
+            ubicacion: dispositivo.ubicacion,
+            ultima_actualizacion: dispositivo.updated_at,
+            metadata: dispositivo.metadata
+        });
+    } catch (err) {
+        console.error('❌ Error al obtener estado:', err);
+        res.status(500).json({ error: 'Error al obtener estado del robot' });
+    }
+});
 
 /**
  * POST /api/robot/mover

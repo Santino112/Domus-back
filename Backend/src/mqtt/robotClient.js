@@ -183,6 +183,51 @@ export async function guardarDatosBuffer() {
     }
 }
 
+// Agregar en src/mqtt/robotClient.js
+
+// Actualizar la función enviarComandoRobot() con los nuevos comandos:
+
+export function enviarComandoRobot(comando) {
+    if (!mqttClient || !mqttClient.connected) {
+        console.error('❌ Cliente MQTT no conectado');
+        return false;
+    }
+
+    const { accion, datos } = comando;
+    const topicos = {
+        'mover': { topic: 'robot/cmd/movimiento', payload: datos },
+        'rotar': { topic: 'robot/cmd/rotacion', payload: datos },
+        'parar': { topic: 'robot/cmd/parar', payload: true },
+        'buscar': { topic: 'robot/cmd/buscar_objeto', payload: datos },
+        'inicio': { topic: 'robot/cmd/volver_inicio', payload: true },
+        'calibrar': { topic: 'robot/cmd/calibrar_sensores', payload: true },
+        
+        // NUEVOS COMANDOS PARA ENCENDER/APAGAR
+        'encender': { 
+            topic: 'robot/cmd/power', 
+            payload: { estado: 'on', timestamp: new Date().toISOString() } 
+        },
+        'apagar': { 
+            topic: 'robot/cmd/power', 
+            payload: { estado: 'off', timestamp: new Date().toISOString() } 
+        }
+    };
+
+    const config = topicos[accion];
+    if (config) {
+        const payload = typeof config.payload === 'string'
+            ? config.payload
+            : JSON.stringify(config.payload);
+
+        mqttClient.publish(config.topic, payload);
+        console.log(`📤 Comando enviado: ${accion} -> ${config.topic}`);
+        return true;
+    }
+
+    console.error(`❌ Comando desconocido: ${accion}`);
+    return false;
+}
+
 export function getMQTTClient() {
     return mqttClient;
 }
