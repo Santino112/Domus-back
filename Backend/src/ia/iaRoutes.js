@@ -6,19 +6,7 @@ import { analisisIA } from './iaInteractions.js';
 
 const router = express.Router();
 
-router.post('/analizar', /*verificarToken,*/ async (req, res) => {
-    try {
-        await analisisIA();
-        res.status(200).json({
-            message: '✅ Analisis ejecutado y guardado en la base de datos'
-        });
-    } catch (err) {
-        console.error('❌ Error en el analisis de la IA:', err.message);
-        res.status(500).json({
-            error: '❌ Error al procesar el analisis con IA'
-        });
-    }
-});
+router.post('/analizar', /*verificarToken,*/ analisisIA);
 
 /**
  * POST /api/ia/chat
