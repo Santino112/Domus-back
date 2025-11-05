@@ -14,18 +14,20 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.1",
-    "axios": "^1.12.2",
     "@supabase/supabase-js": "^2.75.1",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "chalk": "^5.6.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "openai": "^6.6.0",
-    "zod": "^3.25.76",
     "jsonwebtoken": "^9.0.2",
     "mqtt": "^5.2.1",
-    "ws": "^8.14.2"
+    "node-cron": "^4.2.1",
+    "openai": "^6.6.0",
+    "ws": "^8.18.3",
+    "zod": "^3.22.4",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
