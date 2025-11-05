@@ -6,7 +6,7 @@ import { analisisIA } from './iaInteractions.js';
 
 const router = express.Router();
 
-router.post('/analizar', /*verificarToken,*/ analisisIA);
+router.get('/analizar', /*verificarToken,*/ analisisIA);
 
 /**
  * POST /api/ia/chat
