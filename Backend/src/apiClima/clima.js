@@ -2,7 +2,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
-import cron from 'node-cron';
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -52,6 +51,3 @@ export const guardarClima = async () => {
     }
 };
 
-guardarClima();
-
-cron.schedule('0 * * * *', guardarClima);

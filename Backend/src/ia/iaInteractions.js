@@ -2,7 +2,7 @@ import express from 'express';
 import { getOpenAIClient } from '../aiModel/aiModel.js';
 import { obtenerDatos, insertarDatos } from '../database.js';
 import { verificarToken } from '../auth/user.js';
-import cron from 'node-cron';
+import { guardarClima } from '../apiClima/clima.js';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -16,6 +16,8 @@ async function ejecutarAnalisisIA() {
             { id: 2, nombre: 'Sensor de temperatura' },
             { id: 3, nombre: 'Sensor de humedad' }
         ];
+        const datosClimaCiudad = await guardarClima();
+        const climaJSON = JSON.stringify(datosClimaCiudad, null, 2);
 
         let contexto = 'Datos más recientes de los sensores:\n\n';
 
@@ -30,12 +32,24 @@ async function ejecutarAnalisisIA() {
         }
 
         const openai = getOpenAIClient();
-        const prompt = `Eres un asistente experto en análisis de datos ambientales y robótica. 
-            Analiza la siguiente pregunta y proporciona recomendaciones basadas en buenas prácticas.
-            
-            ¿Deberia tomar precauciones en base a estos datos de mi hogar o no hace falta?: ${contexto}
-            
-            Proporciona respuestas claras, concisas y accionables. En la respuesta no incluyas asteriscos, ni numerales, ni guiones`;
+        const prompt = `
+            Eres un asistente experto en análisis de datos ambientales y robótica.
+            Compara los datos de los sensores interiores del hogar con los datos del clima de la ciudad y dar una recomendación razonada.
+            Proporciona una respuesta JSON que siga estrictamente el formato definido.
+
+            La recomendación debe comparar explícitamente los valores interiores y exteriores. 
+            Ejemplo de recomendación:
+            "La diferencia entre la temperatura interior (22°C) y exterior (18°C) es leve. Mantén ventilación adecuada."
+
+            Datos del clima de la ciudad (exterior):
+            ${climaJSON}
+
+            Datos del hogar (interior):
+            ${contexto}
+
+            Proporciona los valores en el campo "datos_relevantes" para "interior" (sensores dentro del hogar) y "exterior" (datos del clima de la ciudad).
+            En la respuesta no incluyas texto adicional, solo los datos JSON según el schema.
+            `;
 
         const response = await openai.responses.create({
             model: "gpt-4o-mini",
@@ -47,19 +61,39 @@ async function ejecutarAnalisisIA() {
                     schema: {
                         type: "object",
                         properties: {
-                            nivel_riesgo: { type: "string", enum: ["bajo", "medio", "alto"] },
+                            calidad_aire: { type: "string", enum: ["Muy mala", "Mala", "Buena", "Muy buena", "Excelente"] },
+                            nivel_riesgo: { type: "string", enum: ["Muy bajo", "Bajo", "Medio", "Alto", "Muy alto"] },
                             recomendacion: { type: "string" },
                             datos_relevantes: {
                                 type: "object",
                                 properties: {
-                                    temperatura: { type: "number", nullable: true },
-                                    humedad: { type: "number", nullable: true }
+                                    interior: {
+                                        type: "object",
+                                        properties: {
+                                            temperatura: { type: "number", nullable: true },
+                                            humedad: { type: "number", nullable: true }
+                                        },
+                                        required: ["temperatura", "humedad"],
+                                        additionalProperties: false
+                                    },
+                                    exterior: {
+                                        type: "object",
+                                        properties: {
+                                            ciudad: { type: "string", nullable: true },
+                                            temperatura: { type: "number", nullable: true },
+                                            humedad: { type: "number", nullable: true },
+                                            condicion: { type: "string", nullable: true },
+                                            viento_kph: { type: "number", nullable: true }
+                                        },
+                                        required: ["ciudad", "temperatura", "humedad", "condicion", "viento_kph"],
+                                        additionalProperties: false
+                                    }
                                 },
-                                required: ["temperatura", "humedad"],
+                                required: ["interior", "exterior"],
                                 additionalProperties: false,
                             }
                         },
-                        required: ["nivel_riesgo", "recomendacion", "datos_relevantes"],
+                        required: ["calidad_aire", "nivel_riesgo", "recomendacion", "datos_relevantes"],
                         additionalProperties: false
                     }
                 }
