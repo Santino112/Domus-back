@@ -11,7 +11,8 @@ export async function verificarTablas() {
             'ai_interactions',
             'alertas',
             'logs',
-            'configuracion_usuario'
+            'configuracion_usuario',
+            'sensores_Data',
         ];
 
         for (const tabla of tablas) {

@@ -12,20 +12,18 @@ import { initializeDatabase, verificarTablas } from './src/initDatabase.js';
 // Rutas
 import authRoutes from './src/auth/user.js';
 import sensorRoutes from './src/sensor/sensorRoutes.js';
-import robotRoutes from './src/robot/controller.js';
+
 import alertasRoutes from './src/alertas/alertasRoutes.js';
 import iaRoutes from './src/ia/iaRoutes.js';
 import sosRoutes from './src/sos/sosRoutes.js';
-
+import robotCliente from './src/mqtt/robotClient.js';
 import requestToAI from './src/aiModel/aiModelRoute.js';
 
-
-
-import { loggerMiddleware } from './src/utils/logger.js';
-import { startMCP } from './src/mcp/mcp.js';
-import { start } from 'repl';
 // import { loggerMiddleware } from './src/utils/logger.js';
-
+// import { start } from 'repl';
+// import { loggerMiddleware } from './src/utils/logger.js';
+// import robotRoutes from './src/robot/controller.js';
+// import { startMCP } from './src/mcp/mcp.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -130,7 +128,7 @@ app.get('/api/docs', (_req, res) => {
 // Rutas protegidas
 app.use('/api/auth', authRoutes);
 app.use('/api/sensors', sensorRoutes);
-app.use('/api/robot', robotRoutes);
+app.use('/api/robot', robotCliente);
 app.use('/api/alertas', alertasRoutes);
 app.use('/api/ia', iaRoutes);
 app.use('/api/sos', sosRoutes);
@@ -200,7 +198,7 @@ const server = app.listen(PORT, async () => {
     }
 
     console.log('✅ ✅ ✅  SISTEMA COMPLETAMENTE LISTO PARA USAR  ✅ ✅ ✅\n');
-    startMCP();
+    // startMCP();
 });
 
 // ==================
@@ -374,4 +372,78 @@ process.on('SIGINT', () => {
         console.log('✅ Servidor cerrado correctamente');
         process.exit(0);
     });
+});
+
+
+// Agregar este código en app.js después de las rutas existentes
+
+// import { getMQTTStatus } from './src/mqtt/robotClient.js';
+
+// ==================
+// ENDPOINT ESTADO MQTT
+// ==================
+// app.get('/api/mqtt/status', verificarToken, (req, res) => {
+//     const status = getMQTTStatus();
+//     res.json({
+//         mqtt: status,
+//         timestamp: new Date().toISOString()
+//     });
+// });
+
+// También actualizar el endpoint /health para incluir MQTT
+// app.get('/health', (_req, res) => {
+//     const mqttStatus = getMQTTStatus();
+//     res.json({
+//         status: 'OK',
+//         message: 'Servidor funcionando correctamente',
+//         timestamp: new Date(),
+//         version: '1.0.0',
+//         mqtt: {
+//             connected: mqttStatus.connected,
+//             broker: mqttStatus.broker
+//         }
+//     });
+// });
+
+// Reemplazar el bloque SIGINT al final de app.js
+
+// import { disconnectMQTT } from './src/mqtt/robotClient.js';
+
+// ==================
+// GRACEFUL SHUTDOWN
+// ==================
+process.on('SIGINT', async () => {
+    console.log('\n\n👋 Apagado graceful iniciado...');
+    
+    try {
+        // 1. Cerrar WebSocket Server
+        console.log('🔌 Cerrando WebSocket...');
+        wss.close();
+        
+        // 2. Desconectar MQTT
+        console.log('📡 Desconectando de HiveMQ...');
+        // disconnectMQTT();
+        
+        // 3. Cerrar servidor HTTP
+        console.log('🛑 Cerrando servidor HTTP...');
+        server.close(() => {
+            console.log('✅ Servidor cerrado correctamente');
+            process.exit(0);
+        });
+        
+        // Timeout para forzar cierre si tarda mucho
+        setTimeout(() => {
+            console.error('⚠️ Forzando cierre después de 10s');
+            process.exit(1);
+        }, 10000);
+        
+    } catch (err) {
+        console.error('❌ Error en shutdown:', err);
+        process.exit(1);
+    }
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM recibido, cerrando...');
+    process.emit('SIGINT');
 });

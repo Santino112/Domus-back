@@ -93,7 +93,6 @@ router.post('/registro', async (req, res) => {
             email,
             password_hash,
             rol: 'user', // Por defecto, rol de usuario normal
-            /* creado_en: new Date().toISOString() */
         });
 
         if (!result.success) {
